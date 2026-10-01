@@ -24,7 +24,7 @@ export function consoleView(app, nav) {
   });
 
   const statusCell = (p) => p.value ? `<span class="status ${p.value}" style="transform:scale(.9);transform-origin:left">${STATUS_LABEL[p.value] || p.value}</span>` : '';
-  const moneyCol = (field, headerName, extra = {}) => ({ field, headerName, type: 'rightAligned', valueFormatter: (p) => (p.value == null ? '' : money(p.value)), cellClass: 'mono', ...extra });
+  const moneyCol = (field, headerName, extra = {}) => ({ field, headerName, type: 'rightAligned', valueFormatter: (p) => (p.value == null ? '' : money(p.value)), cellClass: ['mono', 'ag-right-aligned-cell'], ...extra });
 
   const DEFS = {
     pools: {

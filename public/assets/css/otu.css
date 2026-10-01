@@ -208,3 +208,8 @@ textarea{min-height:150px;resize:vertical;font-size:18px;line-height:1.45}
 .paypal-slot{min-height:46px;margin-top:10px}
 .empty{padding:60px 0;text-align:center;color:var(--muted)}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+.gridbox .ag-cell{display:flex;align-items:center}
+.gridbox .ag-cell.ag-right-aligned-cell{justify-content:flex-end}
+.gridbox .ag-cell.mono{font-family:var(--mono);font-size:13px}
+.gridbox .ag-row-pinned{font-weight:600;background:var(--cream)}

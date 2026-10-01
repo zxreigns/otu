@@ -13,14 +13,14 @@ function loadPayPal(clientId) {
 }
 
 export function poolView(app, nav, id, cfg) {
-  let pool = null, poll = null, lastRev = -1, selected = null, crowdRunning = false, seenPaid = new Set();
+  let pool = null, poll = null, lastRev = -1, selected = null, crowdRunning = false, seenPaid = new Set(), ppBusy = false;
 
   app.innerHTML = `<div class="wrap"><div class="empty">Loading pool…</div></div>`;
 
   async function load() {
     try {
       const p = await api('/pools/' + id);
-      if (p.rev !== lastRev) { pool = p; lastRev = p.rev; render(); }
+      if (p.rev !== lastRev && !ppBusy) { pool = p; lastRev = p.rev; render(); }
     } catch (e) { app.innerHTML = `<div class="wrap"><div class="empty">${esc(e.message)}. <a href="/" data-link>Back home</a></div></div>`; stop(); }
   }
   const stop = () => clearInterval(poll);
@@ -117,9 +117,11 @@ export function poolView(app, nav, id, cfg) {
       slot.innerHTML = '';
       await pp.Buttons({
         style: { layout: 'horizontal', color: 'black', shape: 'pill', label: 'pay', height: 44, tagline: false },
+        onClick: () => { ppBusy = true; },
+        onCancel: () => { ppBusy = false; },
         createOrder: async () => { const r = await api(`/pools/${id}/members/${member.id}/order`, { method: 'POST' }); if (!r.result?.orderId) throw new Error(blockedText(r.result?.verdict) || 'blocked'); return r.result.orderId; },
-        onApprove: async (data) => { await act(`/members/${member.id}/capture`, { orderId: data.orderID }, `${member.name} paid through PayPal`); },
-        onError: (err) => toast('PayPal: ' + (err?.message || err)),
+        onApprove: async (data) => { ppBusy = false; await act(`/members/${member.id}/capture`, { orderId: data.orderID }, `${member.name} paid through PayPal`); },
+        onError: (err) => { ppBusy = false; toast('PayPal: ' + (err?.message || err)); },
       }).render(slot);
     } catch (e) { slot.innerHTML = `<p class="muted">${esc(e.message)}</p>`; }
   }
