@@ -86,15 +86,15 @@ export function consoleView(app, nav) {
   };
   DEFS.events = {
     cols: [
-      { field: 'at', headerName: 'Received', width: 180, valueFormatter: (p) => new Date(p.value).toLocaleString(), sort: 'desc' },
-      { field: 'label', headerName: 'Event', minWidth: 190, flex: 1, tooltipField: 'type' },
-      { field: 'amount', headerName: 'Amount', width: 130, cellClass: 'mono' },
-      { field: 'status', headerName: 'Status', width: 130 },
-      { field: 'resourceId', headerName: 'PayPal resource', minWidth: 210, cellClass: 'pp-id' },
-      { field: 'pool', headerName: 'Pool', minWidth: 170 },
-      { field: 'verified', headerName: 'Signature', minWidth: 200, cellRenderer: (p) => `<span class="${p.value ? 'verified' : 'unverified'}">${p.value ? '✓ verified' : '✕ rejected'}</span>`, tooltipField: 'method' },
+      { field: 'at', headerName: 'Received', width: 120, valueFormatter: (p) => new Date(p.value).toLocaleTimeString(), sort: 'desc' },
+      { field: 'label', headerName: 'Event', minWidth: 170, flex: 1, tooltipField: 'type' },
+      { field: 'amount', headerName: 'Amount', width: 120, cellClass: 'mono' },
+      { field: 'status', headerName: 'Status', width: 150 },
+      { field: 'resourceId', headerName: 'PayPal resource', minWidth: 180, flex: 1, cellClass: 'pp-id' },
+      { field: 'pool', headerName: 'Pool', minWidth: 150, flex: 1 },
+      { field: 'verified', headerName: 'Signature', width: 130, cellRenderer: (p) => `<span class="${p.value ? 'verified' : 'unverified'}">${p.value ? '✓ verified' : '✕ rejected'}</span>`, tooltipField: 'method' },
     ],
-    rows: () => events.map((e) => ({ ...e, id: e.id || e.at, pool: data.pools.find((p) => p.id === e.poolId)?.title || (e.poolId ? e.poolId : '—') })),
+    rows: () => events.map((e) => ({ ...e, id: e.id || e.at, pool: data.pools.find((p) => p.id === e.poolId)?.title || '—' })),
     onRow: (e) => e.data.poolId && nav('/p/' + e.data.poolId),
   };
   const sum = (rows, f) => rows.reduce((a, r) => a + (r[f] || 0), 0);
@@ -108,13 +108,13 @@ export function consoleView(app, nav) {
 
   function drawCharts() {
     if (!window.agCharts) return;
-    const ps = data.pools.slice(0, 8).reverse();
+    const ps = data.pools.filter((p) => p.summary.collectedCents > 0).slice(0, 6).reverse();
     const t = (f) => data.pools.reduce((a, p) => a + (p.summary[f] || 0), 0);
     const key = JSON.stringify(ps.map((p) => [p.id, p.summary.collectedCents, p.summary.spentCents, p.summary.returnedCents]));
     if (key === chartKey) return; chartKey = key;
     const base = { background: { fill: 'transparent' }, theme: { baseTheme: 'ag-default', palette: { fills: ['#121212', '#E8412F', '#1E8A5A', '#B7791F'], strokes: ['#121212', '#E8412F', '#1E8A5A', '#B7791F'] }, params: { fontFamily: 'Inter, system-ui, sans-serif', foregroundColor: '#3A3732' } } };
     const bars = { ...base, container: $('#ch-pools'), title: { text: 'Where each pool’s money went', fontFamily: 'Instrument Serif, Georgia, serif', fontSize: 22, color: '#121212' },
-      data: ps.map((p) => ({ pool: p.title.length > 22 ? p.title.slice(0, 21) + '…' : p.title, collected: p.summary.collectedCents / 100, spent: p.summary.spentCents / 100, back: p.summary.returnedCents / 100 })),
+      data: ps.map((p, i) => ({ pool: `${p.title.length > 18 ? p.title.slice(0, 17) + '…' : p.title} · ${STATUS_LABEL[p.status] || p.status} #${i + 1}`, collected: p.summary.collectedCents / 100, spent: p.summary.spentCents / 100, back: p.summary.returnedCents / 100 })),
       series: [{ type: 'bar', xKey: 'pool', yKey: 'collected', yName: 'Collected', cornerRadius: 6 }, { type: 'bar', xKey: 'pool', yKey: 'spent', yName: 'Paid to supplier', cornerRadius: 6 }, { type: 'bar', xKey: 'pool', yKey: 'back', yName: 'Back to members', cornerRadius: 6 }],
       axes: [{ type: 'category', position: 'bottom', label: { fontSize: 11 } }, { type: 'number', position: 'left', label: { formatter: (p) => '$' + p.value } }],
       legend: { position: 'bottom' } };
