@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Otu — buy as one</title>
+<meta name="description" content="Tell the agent what your group needs. It finds the bulk deal, collects every share through PayPal, buys when the pool fills, and pays back what's left.">
+<meta property="og:title" content="Otu — buy as one">
+<meta property="og:description" content="An AI agent that runs group buys end-to-end on PayPal. Pay in, buy once, pay back.">
+<meta property="og:image" content="/assets/img/og.png">
+<meta name="theme-color" content="#F2EEE6">
+<link rel="icon" href="/assets/img/mark.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/css/otu.css">
+</head>
+<body>
+<header class="nav">
+  <a class="brand" href="/" data-link><span class="mark" aria-hidden="true"></span><span>Otu</span></a>
+  <nav>
+    <a href="/new" data-link>Start a pool</a>
+    <a href="/console" data-link>Console</a>
+    <a href="https://github.com/zxreigns/otu" target="_blank" rel="noopener">Code</a>
+  </nav>
+  <span class="sandbox-pill" id="mode-pill" title="Otu only ever talks to the PayPal sandbox">Sandbox</span>
+</header>
+<main id="app" aria-live="polite"></main>
+<div id="toast" role="status"></div>
+<script src="/vendor/ag-grid-community.min.js" defer></script>
+<script type="module" src="/assets/js/app.js"></script>
+</body>
+</html>

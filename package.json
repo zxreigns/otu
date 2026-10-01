@@ -1,0 +1,14 @@
+{
+  "name": "otu",
+  "version": "0.1.0",
+  "description": "Otu — buy as one. An AI agent that runs group buys end-to-end on PayPal.",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "author": "Matthew Ifeanyi",
+  "scripts": {
+    "dev": "node dev/server.mjs 8790",
+    "test": "node --test test/*.test.mjs"
+  },
+  "engines": { "node": ">=20" }
+}
