@@ -3,7 +3,6 @@
   "framework": null,
   "buildCommand": "",
   "outputDirectory": "public",
-  "cleanUrls": true,
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index" },
     { "source": "/((?!assets/|vendor/|favicon).*)", "destination": "/index.html" }
