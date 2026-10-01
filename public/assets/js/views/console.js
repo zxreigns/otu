@@ -3,18 +3,22 @@ import { api, esc, money, toast, STATUS_LABEL, $ } from '../util.js';
 // Organiser console on AG Grid: every pool, every member, every cent, every
 // mandate verdict. Live: rows are keyed by id, so updates flash in place.
 
+const loaded = {};
+const loadScript = (src) => loaded[src] || (loaded[src] = new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); }));
+
 export function consoleView(app, nav) {
-  let view = 'members', grid = null, data = null, poll = null;
+  let view = 'members', grid = null, data = null, poll = null, events = [], charts = {}, chartKey = '';
   app.innerHTML = `
   <div class="wrap console">
     <div class="pool-head"><div><p class="eyebrow">Organiser console</p><h2 style="margin-top:10px">Every pool, every cent.</h2></div>
       <button class="btn ghost small" id="fresh">New demo pool</button></div>
     <div class="cstats" id="stats"></div>
+    <div class="charts"><div class="chart" id="ch-pools"></div><div class="chart" id="ch-split"></div></div>
     <div class="tabs" id="tabs">
-      <button data-t="pools">Pools</button><button data-t="members" class="on">Members</button><button data-t="ledger">Ledger</button><button data-t="checks">Mandate verdicts</button>
+      <button data-t="pools">Pools</button><button data-t="members" class="on">Members</button><button data-t="ledger">Ledger</button><button data-t="checks">Mandate verdicts</button><button data-t="events">PayPal webhooks</button>
     </div>
     <div id="grid" class="gridbox"></div>
-    <p class="muted" style="font-size:13px;margin-top:12px">Live: refreshes every 3 s. Every money row carries its PayPal id (sandbox) and the mode it ran in.</p>
+    <p class="muted" style="font-size:13px;margin-top:12px">Live: refreshes every 3 s. Every money row carries its PayPal id (sandbox) and the mode it ran in; the webhooks tab shows each PayPal delivery and how its signature was verified.</p>
   </div>`;
 
   const theme = () => window.agGrid.themeQuartz.withParams({
@@ -80,6 +84,19 @@ export function consoleView(app, nav) {
       onRow: (e) => nav('/p/' + e.data.poolId),
     },
   };
+  DEFS.events = {
+    cols: [
+      { field: 'at', headerName: 'Received', width: 180, valueFormatter: (p) => new Date(p.value).toLocaleString(), sort: 'desc' },
+      { field: 'label', headerName: 'Event', minWidth: 190, flex: 1, tooltipField: 'type' },
+      { field: 'amount', headerName: 'Amount', width: 130, cellClass: 'mono' },
+      { field: 'status', headerName: 'Status', width: 130 },
+      { field: 'resourceId', headerName: 'PayPal resource', minWidth: 210, cellClass: 'pp-id' },
+      { field: 'pool', headerName: 'Pool', minWidth: 170 },
+      { field: 'verified', headerName: 'Signature', minWidth: 200, cellRenderer: (p) => `<span class="${p.value ? 'verified' : 'unverified'}">${p.value ? '✓ verified' : '✕ rejected'}</span>`, tooltipField: 'method' },
+    ],
+    rows: () => events.map((e) => ({ ...e, id: e.id || e.at, pool: data.pools.find((p) => p.id === e.poolId)?.title || (e.poolId ? e.poolId : '—') })),
+    onRow: (e) => e.data.poolId && nav('/p/' + e.data.poolId),
+  };
   const sum = (rows, f) => rows.reduce((a, r) => a + (r[f] || 0), 0);
 
   function stats() {
@@ -87,6 +104,26 @@ export function consoleView(app, nav) {
     const t = (f) => ps.reduce((a, p) => a + (p.summary[f] || 0), 0);
     $('#stats').innerHTML = [['Pools', ps.length, false], ['Collected', money(t('collectedCents')), false], ['Spent with suppliers', money(t('spentCents')), false], ['Paid back', money(t('returnedCents')), true]]
       .map(([k, v, g]) => `<div class="kpi ${g ? 'green' : ''}" style="background:var(--paper);box-shadow:var(--shadow)"><small>${k}</small><b>${v}</b></div>`).join('');
+  }
+
+  function drawCharts() {
+    if (!window.agCharts) return;
+    const ps = data.pools.slice(0, 8).reverse();
+    const t = (f) => data.pools.reduce((a, p) => a + (p.summary[f] || 0), 0);
+    const key = JSON.stringify(ps.map((p) => [p.id, p.summary.collectedCents, p.summary.spentCents, p.summary.returnedCents]));
+    if (key === chartKey) return; chartKey = key;
+    const base = { background: { fill: 'transparent' }, theme: { baseTheme: 'ag-default', palette: { fills: ['#121212', '#E8412F', '#1E8A5A', '#B7791F'], strokes: ['#121212', '#E8412F', '#1E8A5A', '#B7791F'] }, params: { fontFamily: 'Inter, system-ui, sans-serif', foregroundColor: '#3A3732' } } };
+    const bars = { ...base, container: $('#ch-pools'), title: { text: 'Where each pool’s money went', fontFamily: 'Instrument Serif, Georgia, serif', fontSize: 22, color: '#121212' },
+      data: ps.map((p) => ({ pool: p.title.length > 22 ? p.title.slice(0, 21) + '…' : p.title, collected: p.summary.collectedCents / 100, spent: p.summary.spentCents / 100, back: p.summary.returnedCents / 100 })),
+      series: [{ type: 'bar', xKey: 'pool', yKey: 'collected', yName: 'Collected', cornerRadius: 6 }, { type: 'bar', xKey: 'pool', yKey: 'spent', yName: 'Paid to supplier', cornerRadius: 6 }, { type: 'bar', xKey: 'pool', yKey: 'back', yName: 'Back to members', cornerRadius: 6 }],
+      axes: [{ type: 'category', position: 'bottom', label: { fontSize: 11 } }, { type: 'number', position: 'left', label: { formatter: (p) => '$' + p.value } }],
+      legend: { position: 'bottom' } };
+    const split = { ...base, container: $('#ch-split'), title: { text: 'Every dollar, accounted for', fontFamily: 'Instrument Serif, Georgia, serif', fontSize: 22, color: '#121212' },
+      data: [{ k: 'Supplier', v: t('spentCents') / 100 }, { k: 'Back to members', v: t('returnedCents') / 100 }, { k: 'Held in open pools', v: t('balanceCents') / 100 }].filter((d) => d.v > 0),
+      series: [{ type: 'donut', angleKey: 'v', legendItemKey: 'k', innerRadiusRatio: 0.68, fills: ['#121212', '#1E8A5A', '#B7791F'], strokeWidth: 0, innerLabels: [{ text: '$' + (t('collectedCents') / 100).toLocaleString(undefined, { maximumFractionDigits: 0 }), fontSize: 26, fontFamily: 'Instrument Serif, Georgia, serif' }, { text: 'collected', fontSize: 11 }] }],
+      legend: { position: 'bottom' } };
+    if (charts.bars) { charts.bars.update(bars); charts.split.update(split); }
+    else { charts.bars = window.agCharts.AgCharts.create(bars); charts.split = window.agCharts.AgCharts.create(split); }
   }
 
   function mount() {
@@ -118,7 +155,11 @@ export function consoleView(app, nav) {
   }
 
   async function load(first) {
-    try { data = await api('/pools'); stats(); first ? mount() : refreshRows(); } catch (e) { toast(e.message); }
+    try {
+      const [d, ev] = await Promise.all([api('/pools'), api('/paypal/events').catch(() => ({ events: [] }))]);
+      data = d; events = ev.events || [];
+      stats(); drawCharts(); first ? mount() : refreshRows();
+    } catch (e) { toast(e.message); }
   }
 
   $('#tabs').onclick = (e) => {
@@ -126,7 +167,7 @@ export function consoleView(app, nav) {
     view = b.dataset.t; app.querySelectorAll('#tabs button').forEach((x) => x.classList.toggle('on', x === b)); grid?.destroy(); mount();
   };
   $('#fresh').onclick = async () => { const p = await api('/demo/fresh', { method: 'POST' }); nav('/p/' + p.id); };
-  load(true);
-  poll = setInterval(() => load(false), 3000);
-  return () => { clearInterval(poll); grid?.destroy(); };
+  Promise.all([loadScript('/vendor/ag-grid-community.min.js'), loadScript('/vendor/ag-charts-community.min.js')]).then(() => load(true), (e) => toast('Could not load the grid: ' + e));
+  poll = setInterval(() => data && load(false), 3000);
+  return () => { clearInterval(poll); grid?.destroy(); charts.bars?.destroy(); charts.split?.destroy(); };
 }

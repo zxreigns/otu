@@ -189,7 +189,7 @@ textarea{min-height:150px;resize:vertical;font-size:18px;line-height:1.45}
 .stack>*+*{margin-top:16px}
 
 /* console */
-.console{padding:28px 0 80px}
+.console{padding-top:28px;padding-bottom:80px}
 .tabs{display:flex;gap:6px;margin:22px 0 14px;flex-wrap:wrap}
 .tabs button{border:0;background:transparent;padding:9px 14px;border-radius:99px;color:var(--ink-2);font-size:14px}
 .tabs button.on{background:var(--ink);color:var(--paper)}
@@ -207,9 +207,76 @@ textarea{min-height:150px;resize:vertical;font-size:18px;line-height:1.45}
 #toast.show{transform:translate(-50%,0);opacity:1}
 .paypal-slot{min-height:46px;margin-top:10px}
 .empty{padding:60px 0;text-align:center;color:var(--muted)}
-@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
 
 .gridbox .ag-cell{display:flex;align-items:center}
 .gridbox .ag-cell.ag-right-aligned-cell{justify-content:flex-end}
 .gridbox .ag-cell.mono{font-family:var(--mono);font-size:13px}
 .gridbox .ag-row-pinned{font-weight:600;background:var(--cream)}
+
+/* ---- milestone 2 ---- */
+.pool>*,.stack>*{min-width:0}
+.flow-svg{max-width:100%}
+/* ---- milestone 2: motion + money map + v6 button ---------------------------- */
+@property --p{syntax:'<number>';inherits:false;initial-value:0}
+.ring{transition:--p 1.1s var(--ease)}
+.rise{animation:rise .7s var(--ease) both;animation-delay:calc(var(--i,0)*70ms)}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.kpi b{transition:color .3s}
+.kpi b.bump{animation:bump .6s var(--ease)}
+@keyframes bump{0%{transform:none}35%{transform:translateY(-3px)}100%{transform:none}}
+.flow{margin-top:18px;padding-top:14px;border-top:1px solid var(--line)}
+.flow-svg{width:100%;height:auto;display:block;overflow:visible}
+.flow-svg .lane{fill:none;stroke:var(--line-2);stroke-width:2;stroke-dasharray:4 6;transition:stroke .4s,stroke-width .4s}
+.flow-svg.has-in #f-in,.flow-svg.has-buy #f-buy{stroke:var(--ink);stroke-dasharray:none;stroke-width:2.2}
+.flow-svg.has-back #f-back{stroke:var(--green);stroke-dasharray:none;stroke-width:2.2}
+.flow-svg .lane.hot{stroke-width:4}
+.flow-svg .node circle{fill:var(--paper);stroke:var(--line-2);stroke-width:1.5}
+.flow-svg .node.pool circle{fill:var(--ink);stroke:none}
+.flow-svg .n-big{font:400 26px var(--serif);text-anchor:middle;fill:var(--ink)}
+.flow-svg .n-small{font:500 9px var(--mono);letter-spacing:.1em;text-transform:uppercase;text-anchor:middle;fill:var(--muted)}
+.flow-svg .n-mark{font:italic 400 26px var(--serif);text-anchor:middle;fill:var(--paper)}
+.flow-svg .lab{font:500 13px var(--mono);text-anchor:middle;fill:var(--ink)}
+.flow-svg .cap{font:500 9px var(--mono);letter-spacing:.1em;text-transform:uppercase;text-anchor:middle;fill:var(--muted)}
+.flow-svg .cap.green{fill:var(--green)}
+.flow-svg .lab.green{fill:var(--green)}
+.flow-svg .dot.ink{fill:var(--ink)} .flow-svg .dot.red{fill:var(--red)} .flow-svg .dot.green{fill:var(--green)}
+.members li{transition:background .4s}
+.members li.just{animation:paidflash 1.4s var(--ease)}
+@keyframes paidflash{0%{background:var(--green-soft)}100%{background:transparent}}
+.members li.just .avatar{animation:pop .9s var(--ease)}
+.hook{display:inline-block;font:500 10px/1 var(--mono);letter-spacing:.04em;padding:3px 6px;border-radius:6px;background:var(--blue-soft);color:var(--blue);vertical-align:2px}
+.hookbar{display:flex;align-items:center;gap:8px;font:500 11px var(--mono);color:var(--muted);margin:-4px 0 12px;letter-spacing:.02em}
+.hookdot{width:7px;height:7px;border-radius:50%;background:var(--blue);box-shadow:0 0 0 0 rgba(47,91,255,.5);animation:ping 2s infinite}
+.hookdot.idle{background:var(--line-2);animation:none}
+@keyframes ping{0%{box-shadow:0 0 0 0 rgba(47,91,255,.45)}70%{box-shadow:0 0 0 8px rgba(47,91,255,0)}100%{box-shadow:0 0 0 0 rgba(47,91,255,0)}}
+.feed li.enter{animation:feedin .6s var(--ease)}
+@keyframes feedin{from{opacity:0;transform:translateY(-10px) scale(.98)}to{opacity:1;transform:none}}
+.paybox{margin-top:12px;padding:16px;border-radius:16px;background:var(--cream)}
+.paybox select{width:auto;padding:8px 10px;border-radius:10px;border:1px solid var(--line-2);background:var(--paper);font:inherit;font-size:14px}
+.paypal-slot{min-height:48px;margin-top:12px}
+paypal-button{display:block;width:100%;--paypal-button-border-radius:999px}
+.pp-skel{height:46px;border-radius:99px;background:linear-gradient(90deg,var(--line) 0%,var(--paper) 50%,var(--line) 100%);background-size:200% 100%;animation:skel 1.2s linear infinite}
+@keyframes skel{to{background-position:-200% 0}}
+.paynote{font-size:13px;margin:8px 0 0}
+@media (max-width:640px){
+  .paybox .row-between{flex-direction:column;align-items:flex-start;gap:8px}
+  .paybox select{width:100%}
+  .members li{gap:10px}
+  .members .amt{display:none}
+  .pool-head{flex-direction:column;align-items:flex-start;gap:12px}
+  .agent .feed{max-height:520px}
+  .card{padding:18px}
+  .flow-svg .lab{font-size:22px}.flow-svg .cap{font-size:13px}.flow-svg .n-small{font-size:13px}.flow-svg .n-big{font-size:34px}
+  .offer{flex-wrap:wrap}.offer .meta b{white-space:normal}.offer .meta{flex-basis:calc(100% - 80px)}.offer .thumb{width:52px;height:52px}
+  .price-compare{flex-wrap:wrap;row-gap:0}
+  .fill{flex-direction:row;align-items:center;gap:16px;flex-wrap:wrap}
+  .ring{width:112px;height:112px}.ring>div{width:88px;height:88px}.ring b{font-size:32px}
+  .kpis{grid-template-columns:1fr 1fr 1fr;gap:8px;flex-basis:100%}
+  .kpi{padding:10px}.kpi b{font-size:22px}.kpi small{font-size:9.5px}
+}
+.charts{display:grid;grid-template-columns:1.4fr 1fr;gap:16px;margin:16px 0 20px}
+.charts .chart{height:280px;border-radius:18px;background:var(--paper);box-shadow:var(--shadow);padding:8px}
+@media (max-width:860px){.charts{grid-template-columns:1fr}}
+.verified{color:var(--green);font:500 12px var(--mono)} .unverified{color:var(--red);font:500 12px var(--mono)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}

@@ -4,13 +4,13 @@ import { parseRequest, explainChoice } from '../lib/llm.js';
 import { sourceOffers } from '../lib/sourcing.js';
 import { createPool, rankOffers, addMember, summary, publicView, shareFor } from '../lib/pool.js';
 import { DEFAULT_MANDATE, describeMandate } from '../lib/mandate.js';
-import { getPool, putPool, listPools, withPool, storeKind } from '../lib/store.js';
-import { createMemberOrder, captureMemberOrder, demoPay, tick, approve, decline } from '../lib/agent.js';
+import { getPool, putPool, listPools, withPool, storeKind, lookupRef, logWebhook, recentWebhooks } from '../lib/store.js';
+import { createMemberOrder, captureMemberOrder, demoPay, tick, approve, decline, payInFromInvoice } from '../lib/agent.js';
 import { paypal, paypalMode } from '../lib/paypal.js';
 import { ensureSeed, buildDemoPool, DEMO_SPECS } from '../lib/seed.js';
 import { toCents } from '../lib/money.js';
 
-const VERSION = '0.1.0';
+const VERSION = '0.2.0';
 
 function send(res, status, body) {
   res.statusCode = status;
@@ -19,12 +19,15 @@ function send(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
+// Read the raw bytes first (webhook signatures are over the exact body) and
+// only fall back to a platform-parsed body if the stream was already drained.
 async function readBody(req) {
-  if (req.body !== undefined) return { raw: typeof req.body === 'string' ? req.body : JSON.stringify(req.body), json: typeof req.body === 'string' ? safeJson(req.body) : req.body };
   const chunks = [];
-  for await (const c of req) chunks.push(c);
-  const raw = Buffer.concat(chunks).toString('utf8');
-  return { raw, json: safeJson(raw) };
+  try { for await (const c of req) chunks.push(c); } catch { /* stream already consumed */ }
+  if (chunks.length) { const raw = Buffer.concat(chunks).toString('utf8'); return { raw, json: safeJson(raw) }; }
+  const b = req.body;
+  if (b === undefined || b === null) return { raw: '', json: {} };
+  return { raw: typeof b === 'string' ? b : JSON.stringify(b), json: typeof b === 'string' ? safeJson(b) : b };
 }
 const safeJson = (s) => { try { return s ? JSON.parse(s) : {}; } catch { return {}; } };
 
@@ -37,6 +40,7 @@ route('GET', '/api/health', async () => [200, {
   ok: true, version: VERSION, paypal: paypalMode(), store: storeKind(),
   ai: [process.env.GEMINI_API_KEY && 'gemini', process.env.GROQ_API_KEY && 'groq'].filter(Boolean),
   sourcing: process.env.CHANNEL3_API_KEY ? 'channel3' : 'catalog',
+  webhooks: !!process.env.PAYPAL_WEBHOOK_ID, sdk: 'paypal-web-sdk-v6',
 }]);
 
 route('GET', '/api/config', async () => [200, { paypalClientId: paypal().clientId, paypalMode: paypalMode(), currency: process.env.CURRENCY || 'USD' }]);
@@ -109,20 +113,68 @@ route('POST', '/api/demo/fresh', async () => {
 });
 
 // PayPal webhooks: the ledger follows what PayPal says actually happened.
+// Every delivery is verified, logged, matched to its pool through the
+// reference index, and stamped onto the ledger row it confirms.
+const EVENT_LABEL = {
+  'CHECKOUT.ORDER.APPROVED': 'Order approved by payer', 'CHECKOUT.ORDER.COMPLETED': 'Order completed',
+  'PAYMENT.CAPTURE.COMPLETED': 'Pay-in captured', 'PAYMENT.CAPTURE.PENDING': 'Pay-in pending', 'PAYMENT.CAPTURE.DENIED': 'Pay-in denied',
+  'PAYMENT.CAPTURE.REFUNDED': 'Refund settled', 'PAYMENT.CAPTURE.REVERSED': 'Pay-in reversed',
+  'PAYMENT.PAYOUTSBATCH.SUCCESS': 'Payout batch paid', 'PAYMENT.PAYOUTSBATCH.PROCESSING': 'Payout batch processing', 'PAYMENT.PAYOUTSBATCH.DENIED': 'Payout batch denied',
+  'PAYMENT.PAYOUTS-ITEM.SUCCEEDED': 'Payout claimed', 'PAYMENT.PAYOUTS-ITEM.UNCLAIMED': 'Payout unclaimed', 'PAYMENT.PAYOUTS-ITEM.FAILED': 'Payout failed',
+  'PAYMENT.PAYOUTS-ITEM.RETURNED': 'Payout returned', 'PAYMENT.PAYOUTS-ITEM.BLOCKED': 'Payout blocked', 'PAYMENT.PAYOUTS-ITEM.HELD': 'Payout held',
+  'INVOICING.INVOICE.PAID': 'Invoice paid', 'INVOICING.INVOICE.CANCELLED': 'Invoice cancelled',
+};
+function eventRefs(res) {
+  return [res.id, res.supplementary_data?.related_ids?.order_id, res.supplementary_data?.related_ids?.capture_id, res.payout_batch_id,
+    res.batch_header?.payout_batch_id, res.invoice?.id, ...(res.links || []).filter((l) => l.rel === 'up').map((l) => l.href.split('/').pop())].filter(Boolean);
+}
+function eventAmount(res) {
+  const a = res.amount || res.payout_item?.amount || res.batch_header?.amount || res.invoice?.amount || res.purchase_units?.[0]?.amount;
+  const v = a?.value ?? a?.total; return v != null ? `${a.currency_code || a.currency || ''} ${v}`.trim() : null;
+}
+
 route('POST', '/api/paypal/webhook', async ({ req, raw, body }) => {
-  const ok = await paypal().verifyWebhook(req.headers, raw).catch(() => false);
-  if (!ok) return [400, { error: 'unverified' }];
-  const type = body.event_type;
+  const v = await paypal().verifyWebhook(req.headers, raw).catch((e) => ({ ok: false, method: e.message }));
+  const type = body.event_type || 'unknown';
   const res = body.resource || {};
-  const poolId = res.custom_id || res.purchase_units?.[0]?.custom_id;
+  const refs = eventRefs(res);
+  let poolId = res.custom_id || res.purchase_units?.[0]?.custom_id || null;
+  for (const r of refs) { if (poolId) break; poolId = await lookupRef(r).catch(() => null); }
+  const status = res.status || res.transaction_status || res.batch_header?.batch_status || res.invoice?.status || null;
+  const entry = { id: body.id, at: new Date().toISOString(), created: body.create_time, type, label: EVENT_LABEL[type] || type, resourceId: res.id || res.payout_item_id || res.batch_header?.payout_batch_id || res.invoice?.id, status, amount: eventAmount(res), poolId, verified: v.ok, method: v.method };
+  await logWebhook(entry).catch(() => {});
+  if (!v.ok) return [400, { error: 'unverified' }];
   if (poolId) {
-    await withPool(poolId, (pool) => {
-      pool.webhooks = [...(pool.webhooks || []).slice(-30), { at: new Date().toISOString(), type, id: res.id, status: res.status }];
-      const row = pool.ledger.find((l) => l.paypal?.captureId === res.id || l.paypal?.refundId === res.id);
-      if (row) row.paypal.confirmedByWebhook = type;
+    await withPool(poolId, async (pool) => {
+      if ((pool.webhooks || []).some((w) => w.id === body.id)) return;
+      pool.webhooks = [...(pool.webhooks || []).slice(-40), entry];
+      const ids = new Set(refs);
+      for (const row of pool.ledger) {
+        const p = row.paypal || {};
+        if ([p.captureId, p.refundId, p.orderId, p.payoutBatchId].some((x) => x && ids.has(x))) {
+          p.webhooks = [...new Set([...(p.webhooks || []), type])];
+          p.confirmedByWebhook = type;
+          if (type.startsWith('PAYMENT.PAYOUTS-ITEM.')) p.itemStatus = res.transaction_status;
+          row.paypal = p;
+        }
+      }
+      if (type === 'INVOICING.INVOICE.PAID') {
+        const m = pool.members.find((x) => x.invoiceId === res.invoice?.id);
+        if (m) await payInFromInvoice(pool, m, res.invoice);
+      }
     });
   }
   return [200, { ok: true }];
+});
+
+route('GET', '/api/paypal/events', async ({ query }) => {
+  const all = await recentWebhooks(60);
+  return [200, { webhookConfigured: !!process.env.PAYPAL_WEBHOOK_ID, events: query.pool ? all.filter((e) => e.poolId === query.pool) : all }];
+});
+
+route('GET', '/api/paypal/client-token', async () => {
+  const t = await paypal().clientToken();
+  return t ? [200, t] : [404, { error: 'simulated mode' }];
 });
 
 export default async function handler(req, res) {
