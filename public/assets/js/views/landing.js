@@ -56,7 +56,7 @@ export function landing(app, nav) {
     </div>
   </section>
 
-  <footer><div class="wrap"><span>Otu · PayPal sandbox only, no real money moves.</span><span>PayPal Orders · Invoicing · Refunds · Payouts · Webhooks</span></div></footer>`;
+  <footer><div class="wrap"><span>Otu · PayPal sandbox only, no real money moves.</span><span>PayPal JS SDK v6 · Orders · Invoicing · Refunds · Payouts · Webhooks</span></div></footer>`;
 
   const stop = heroCanvas(document.getElementById('hero-c'));
   observeReveal(app);

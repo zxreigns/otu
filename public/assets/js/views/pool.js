@@ -212,7 +212,7 @@ export function poolView(app, nav, id, cfg) {
     patch($('#r-req'), p.request ? `Started from: “${esc(p.request)}”` : '');
 
     // agent feed: newest first, keyed, new items slide in
-    $('#r-steps').textContent = `${p.actions.length} steps`;
+    $('#r-steps').textContent = `${p.actions.length} step${p.actions.length === 1 ? '' : 's'}`;
     const tick = $('#tick'); tick.disabled = !['collecting', 'filled'].includes(p.status);
     const hooks = (p.webhooks || []).filter((w) => w.verified !== false);
     patch($('#r-hooks'), hooks.length ? `<span class="hookdot"></span>${hooks.length} PayPal webhook${hooks.length > 1 ? 's' : ''} verified · last: ${esc(hooks[hooks.length - 1].label || hooks[hooks.length - 1].type)}` : `<span class="hookdot idle"></span>Listening for PayPal webhooks`);
