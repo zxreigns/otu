@@ -64,7 +64,7 @@ Every money call carries a `PayPal-Request-Id`, so a retried request can never d
 ## Sponsor tools
 
 - **AG Grid** — the organiser console (`/console`): pools, members, the full ledger and every mandate verdict in live grids (row ids + cell-change flashing as webhooks and pay-ins land, pinned total rows, custom renderers, quartz theme matched to the brand).
-- **Channel3** — offer sourcing over its product graph (`POST /v1/search`), with pack sizes parsed from titles and the cheapest listing kept per retailer. Without a key, a curated catalog fixture answers through the same interface (clearly labelled in the UI).
+- **Channel3** — live offer sourcing over its product graph (`POST /v1/search`): the agent filters out look-alikes (a search for "rice" also returns rice cookers), parses pack sizes from titles and descriptions, drops listings with implausible unit prices and keeps the cheapest listing per retailer. Household goods (detergent, diapers, paper towels) come back live; for staples Channel3 doesn't index yet (bulk rice, oil), a curated catalog answers through the same interface, and the UI always says which source an offer came from.
 
 ## Run it
 
