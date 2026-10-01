@@ -181,7 +181,7 @@ export function poolView(app, nav, id, cfg) {
       if (n(['refund', 'payout'])) setTimeout(() => flyDots(svg, 'f-back', Math.min(8, n(['refund', 'payout']) + 2), 'green'), 1100);
     }
 
-    patch($('#r-offer'), chosen ? `<div class="card rise" style="--i:1">
+    patch($('#r-offer'), chosen ? `<div class="card">
             <div class="offer"><span class="thumb" ${chosen.image ? `style="background-image:url('${esc(chosen.image)}')"` : ''}>${chosen.image ? '' : esc(chosen.merchant[0])}</span>
               <span class="meta"><b>${esc(chosen.title)}</b><small>${esc(chosen.merchant)} · ${chosen.quote.packs} pack${chosen.quote.packs > 1 ? 's' : ''} for ${s.target} households · ${esc(chosen.source === 'channel3' ? 'live via Channel3' : 'catalog price')}</small></span>
               <span class="save">−${chosen.quote.savingsPct}% vs alone</span></div>
