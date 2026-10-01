@@ -4,7 +4,7 @@ import { api, esc, money, toast, STATUS_LABEL, $ } from '../util.js';
 // mandate verdict. Live: rows are keyed by id, so updates flash in place.
 
 export function consoleView(app, nav) {
-  let tab = 'members', grid = null, data = null, poll = null;
+  let view = 'members', grid = null, data = null, poll = null;
   app.innerHTML = `
   <div class="wrap console">
     <div class="pool-head"><div><p class="eyebrow">Organiser console</p><h2 style="margin-top:10px">Every pool, every cent.</h2></div>
@@ -90,7 +90,7 @@ export function consoleView(app, nav) {
   }
 
   function mount() {
-    const d = DEFS[tab];
+    const d = DEFS[view];
     const el = $('#grid'); el.innerHTML = '';
     if (!window.agGrid) { el.innerHTML = '<div class="empty">Loading grid…</div>'; return setTimeout(mount, 300); }
     const rows = d.rows();
@@ -111,7 +111,7 @@ export function consoleView(app, nav) {
 
   function refreshRows() {
     if (!grid) return;
-    const d = DEFS[tab];
+    const d = DEFS[view];
     const rows = d.rows();
     grid.setGridOption('rowData', rows);
     if (d.totals) grid.setGridOption('pinnedBottomRowData', d.totals(rows));
@@ -123,7 +123,7 @@ export function consoleView(app, nav) {
 
   $('#tabs').onclick = (e) => {
     const b = e.target.closest('button'); if (!b) return;
-    tab = b.dataset.t; app.querySelectorAll('#tabs button').forEach((x) => x.classList.toggle('on', x === b)); grid?.destroy(); mount();
+    view = b.dataset.t; app.querySelectorAll('#tabs button').forEach((x) => x.classList.toggle('on', x === b)); grid?.destroy(); mount();
   };
   $('#fresh').onclick = async () => { const p = await api('/demo/fresh', { method: 'POST' }); nav('/p/' + p.id); };
   load(true);
